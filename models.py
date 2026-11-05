@@ -8,7 +8,10 @@ make_model() picks the model for each track. The two starting models are baselin
 deliberately simple, so you can measure how much your own ideas add.
 """
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
 
 import features
 
@@ -16,11 +19,14 @@ import features
 def make_model(track):
     """Return a fresh, untrained model for "off_market" or "list_aware"."""
     if track == "list_aware":
-        return ListPriceBaseline()
+        # return ListPriceBaseline()
         # return FeatureModel(features.list_aware_features)   # try this instead
-    return NearestSalesBaseline(k=10)
+        # return MLPModel(features.feature_list_mlp, features.get_preprocessor_mlp(track))
+        return RandomForestRegressorModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track))
+    # return NearestSalesBaseline(k=10)
     # return FeatureModel(features.off_market_features)       # try this instead
-
+    # return MLPModel(features.feature_list_mlp_off_market, features.get_preprocessor_mlp(track))
+    return RandomForestRegressorModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track))
 
 class ListPriceBaseline:
     """List-aware baseline: every home sells for exactly its list price."""
@@ -90,3 +96,52 @@ class FeatureModel:
 
     def predict(self, homes):
         return np.exp(self.model.predict(self.make_features(homes)))
+
+class MLPModel:
+    """MLP neural network on the features in feature_list_mlp."""
+    def __init__(self, make_features, preprocessor, hidden_layer_sizes=(64, 32), alpha=0.0001, max_iter=500, random_state=255):
+        self.make_features = make_features
+
+        # 1. Fetch the preprocessor blueprint from features.py
+        # preprocessor = get_preprocessor()
+        
+        # 2. Build the inner scikit-learn Pipeline
+        self.pipeline = Pipeline(steps=[
+            ('preprocessor', preprocessor),
+            ('mlp', MLPRegressor(
+                hidden_layer_sizes=hidden_layer_sizes, 
+                activation='relu', 
+                solver='adam', 
+                alpha=alpha,
+                max_iter=max_iter, 
+                random_state=random_state
+            ))
+        ])
+
+    def fit(self, train):
+        self.pipeline.fit(self.make_features(train), train["sold_price"])
+        return self
+
+    def predict(self, homes):
+        return self.pipeline.predict(self.make_features(homes))
+
+class RandomForestRegressorModel:
+    """Random Forest on the features in feature_list_mlp."""
+    def __init__(self, make_features, preprocessor, n_estimators=100, random_state=42):
+        self.make_features = make_features
+
+        # 1. Fetch the preprocessor blueprint from features.py
+        # preprocessor = get_preprocessor()
+        
+        # 2. Build the inner scikit-learn Pipeline
+        self.pipeline = Pipeline(steps=[
+            ('preprocessor', preprocessor),
+            ('regressor', RandomForestRegressor(n_estimators=n_estimators, random_state=random_state))
+        ])
+    
+    def fit(self, train):
+        self.pipeline.fit(self.make_features(train), train["sold_price"])
+        return self
+
+    def predict(self, homes):
+        return self.pipeline.predict(self.make_features(homes))

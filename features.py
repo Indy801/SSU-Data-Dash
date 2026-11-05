@@ -50,3 +50,79 @@ def list_aware_features(homes):
     X = off_market_features(homes)
     X["list_price"] = homes["list_price"]
     return X
+
+
+
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
+def get_preprocessor_mlp(track):
+    """
+    Creates a ColumnTransformer that applies StandardScaler to numerical features
+    and OneHotEncoder to categorical features without distorting binary scales.
+    """
+    numeric_features = ['house_area', 'bedrooms', 'washrooms', 'parking_total', 'latitude', 'longitude', 'months']
+    categorical_features = ['house_type_name', 'house_style']
+
+    if track == 'list_aware':
+        numeric_features.append('list_price')
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', StandardScaler(), numeric_features),
+            ('cat', OneHotEncoder(drop=None, sparse_output=False), categorical_features)
+        ],
+        remainder='passthrough'
+    )
+    return preprocessor
+
+def get_preprocessor_random_forest(track):
+    numeric_features = ['house_area', 'bedrooms', 'washrooms', 'parking_total', 'latitude', 'longitude', 'months']
+    categorical_features = ['house_type_name', 'house_style']
+
+    if track == 'list_aware':
+        numeric_features.append('list_price')
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            # ('num', StandardScaler(), numeric_features),
+            ('cat', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), categorical_features)
+        ],
+        remainder='passthrough'
+    )
+    return preprocessor
+
+def feature_list_mlp(homes):
+    """"Features to fit MLP"""
+    X = pd.DataFrame(index=homes.index)
+    X['list_price'] = homes['list_price']
+    # X['days_on_market'] = homes['days_on_market']
+    # X[new_house_type_cols] = encoded_house_type
+    X['house_type_name'] = homes['house_type_name']
+    X['house_style'] = homes['house_style']
+    X['house_area'] = square_feet(homes["house_area"])
+    X["bedrooms"] = homes["bedrooms"]
+    X["washrooms"] = homes["washrooms"]
+    X["parking_total"] = homes["parking_total"]
+    X["latitude"] = homes["latitude"]
+    X["longitude"] = homes["longitude"]
+    X["months"] = (homes["date_listed"] - pd.Timestamp("2021-01-01")).dt.days / 30.44
+
+    return X
+
+def feature_list_mlp_off_market(homes):
+    """"Features to fit MLP"""
+    X = pd.DataFrame(index=homes.index)
+    # X['list_price'] = homes['list_price']
+    # X['days_on_market'] = homes['days_on_market']
+    # X[new_house_type_cols] = encoded_house_type
+    X['house_type_name'] = homes['house_type_name']
+    X['house_style'] = homes['house_style']
+    X['house_area'] = square_feet(homes["house_area"])
+    X["bedrooms"] = homes["bedrooms"]
+    X["washrooms"] = homes["washrooms"]
+    X["parking_total"] = homes["parking_total"]
+    X["latitude"] = homes["latitude"]
+    X["longitude"] = homes["longitude"]
+    X["months"] = (homes["date_listed"] - pd.Timestamp("2021-01-01")).dt.days / 30.44
+
+    return X
