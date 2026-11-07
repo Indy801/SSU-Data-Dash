@@ -71,15 +71,17 @@ def tune():
     custom_cv = LastNMonthsTimeSeriesSplit(n_validation_months=6)
 
     param_grid = {
-        'learning_rate': [0.01, 0.05, 0.1, 0.2],
-        'max_iter': [100, 500, 1000],
-        'max_leaf_nodes': [15, 31, 63],
+        'learning_rate': [0.01, 0.02, 0.05, 0.1, 0.2],
+        'n_estimators': [100, 500, 1000, 1500],
+        'max_leaf_nodes': [15, 31, 63, 127],
         'min_samples_leaf': [10, 20, 50],
         'l2_regularization': [0.0, 0.1, 1.0],
+        'colsample_bytree': [0.6, 0.8, 1.0],
+        'min_split_gain': [0.0, 0.1, 0.5],
     }
 
-    grid_search = GridSearchCV(
-        estimator=models.XGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest('off_market'), random_state=42),
+    grid_search_la = GridSearchCV(
+        estimator=models.LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest('list_aware'), random_state=42),
         param_grid=param_grid,
         cv=custom_cv,               # <--- Inject custom validation strategy here
         scoring='neg_mean_squared_error',
@@ -87,15 +89,33 @@ def tune():
         verbose=1
     )
 
-    grid_search.fit(X_om, Y, groups=dates_vector)
+    grid_search_om = GridSearchCV(
+        estimator=models.LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest('off_market'), random_state=42),
+        param_grid=param_grid,
+        cv=custom_cv,               # <--- Inject custom validation strategy here
+        scoring='neg_mean_squared_error',
+        n_jobs=5,
+        verbose=1
+    )
 
-    results_df = pd.DataFrame(grid_search.cv_results_)
+    grid_search_la.fit(X, Y, groups=dates_vector)
+    results_df_list_aware = pd.DataFrame(grid_search_la.cv_results_)
+
+    print("Fitting list aware completed")
+
+    grid_search_om.fit(X_om, Y, groups=dates_vector)
+    results_df_off_market = pd.DataFrame(grid_search_om.cv_results_)
+
+    print("Fitting off market completed")
 
     # Convert the negative MSE score into positive metrics
-    results_df['mean_mse'] = -results_df['mean_test_score']
-    results_df['mean_rmse'] = np.sqrt(results_df['mean_mse'])  # RMSE is in the original target units ($)
+    results_df_list_aware['mean_mse'] = -results_df_list_aware['mean_test_score']
+    results_df_list_aware['mean_rmse'] = np.sqrt(results_df_list_aware['mean_mse'])  # RMSE is in the original target units ($)
+    results_df_off_market['mean_mse'] = -results_df_off_market['mean_test_score']
+    results_df_off_market['mean_rmse'] = np.sqrt(results_df_off_market['mean_mse'])  # RMSE is in the original target units ($)
 
-    results_df_sorted = results_df.sort_values(by='rank_test_score')
+    results_df_list_aware_sorted = results_df_list_aware.sort_values(by='rank_test_score')
+    results_df_off_market_sorted = results_df_off_market.sort_values(by='rank_test_score')
 
     
     # 4. Generate a unique, timestamped filename to prevent overwriting past runs
@@ -103,7 +123,8 @@ def tune():
     output_filename = f"grid_search_results_{timestamp}.csv"
 
     # 5. Export to CSV
-    results_df_sorted.to_csv(output_filename, index=False)
+    results_df_list_aware_sorted.to_csv(output_filename, index=False)
+    results_df_off_market_sorted.to_csv(output_filename, index=False)
 
     print(f"✅ Grid search results successfully saved to: {os.path.abspath(output_filename)}")
 
@@ -119,4 +140,10 @@ def tune():
     print(f"⏱️  TOTAL RUNTIME: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
     print("==========================================")
 
+    print("\n==========================================")
+    print("Best Param list aware: ")
+    print(results_df_list_aware_sorted['params'].iloc[0])
+    print("Best Param off market: ")
+    print(results_df_off_market_sorted['params'].iloc[0])
+    print("==========================================")
 tune()

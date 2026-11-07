@@ -13,8 +13,11 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
+from john.models import GBMBlend
+from john.features import gbm_features
 
 import features
+from functools import partial
 
 
 def make_model(track):
@@ -24,12 +27,20 @@ def make_model(track):
         # return FeatureModel(features.list_aware_features)   # try this instead
         # return MLPModel(features.feature_list_mlp, features.get_preprocessor_mlp(track))
         # return RandomForestRegressorModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track))
-        return XGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, max_iter=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+        # return XGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+        # return LGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+        return GBMBlend("list_aware", partial(gbm_features, track="list_aware"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
+            lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
+        )
     # return NearestSalesBaseline(k=10)
     # return FeatureModel(features.off_market_features)       # try this instead
     # return MLPModel(features.feature_list_mlp_off_market, features.get_preprocessor_mlp(track))
     # return RandomForestRegressorModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track))
-    return XGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, max_iter=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+    # return XGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+    # return LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+    return GBMBlend("off_market", partial(gbm_features, track="off_market"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
+            lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
+        )
 
 class ListPriceBaseline:
     """List-aware baseline: every home sells for exactly its list price."""
@@ -185,20 +196,24 @@ class XGBModel(BaseEstimator, RegressorMixin):
     """Random Forest on the features in feature_list_mlp."""
     def __init__(self, make_features, preprocessor, 
         learning_rate=0.01,
-        max_iter=100,
+        n_estimators=100,
         max_leaf_nodes=15,
         min_samples_leaf=20,
         l2_regularization=0.0,
+        column_sample_percent=1.0,
+        min_split_gain=0.0,
         random_state=42):
         self.make_features = make_features
         self.random_state = random_state
         self.preprocessor = preprocessor
 
         self.learning_rate = learning_rate
-        self.max_iter = max_iter
+        self.max_iter = n_estimators
         self.max_leaf_nodes = max_leaf_nodes
         self.min_samples_leaf = min_samples_leaf
         self.l2_regularization = l2_regularization
+        self.column_sample_percent = column_sample_percent
+        self.min_split_gain = min_split_gain
         
     # def fit(self, x, y=None, **fit_params):
     #     self.pipeline = Pipeline(steps=[
@@ -227,10 +242,79 @@ class XGBModel(BaseEstimator, RegressorMixin):
                     device="cuda",                          # Forces GPU execution
                     
                     learning_rate=self.learning_rate,       # Same name
-                    n_estimators=self.max_iter,             # max_iter maps to n_estimators
+                    n_estimators=self.n_estimators,             # max_iter maps to n_estimators
                     max_leaves=self.max_leaf_nodes,         # max_leaf_nodes maps to max_leaves
                     min_child_weight=self.min_samples_leaf, # min_samples_leaf maps closely to min_child_weight
-                    reg_lambda=self.l2_regularization       # l2_regularization maps to reg_lambda
+                    reg_lambda=self.l2_regularization,       # l2_regularization maps to reg_lambda
+                    colsample_bytree=self.column_sample_percent,
+                    gamma=self.min_split_gain
+                )
+            )
+        ], memory=memory)
+
+        self.pipeline.fit(self.make_features(x), np.log(x['sold_price']))
+        return self
+
+    def predict(self, x):
+        return np.exp(self.pipeline.predict(self.make_features(x)))
+
+from lightgbm import LGBMRegressor
+class LGBModel(BaseEstimator, RegressorMixin):
+    """Random Forest on the features in feature_list_mlp."""
+    def __init__(self, make_features, preprocessor, 
+        learning_rate=0.01,
+        n_estimators=100,
+        max_leaf_nodes=15,
+        min_samples_leaf=20,
+        l2_regularization=0.0,
+        column_sample_percent=1.0,
+        min_split_gain=0.0,
+        random_state=42):
+        self.make_features = make_features
+        self.random_state = random_state
+        self.preprocessor = preprocessor
+
+        self.learning_rate = learning_rate
+        self.n_estimators = n_estimators
+        self.max_leaf_nodes = max_leaf_nodes
+        self.min_samples_leaf = min_samples_leaf
+        self.l2_regularization = l2_regularization
+        self.column_sample_percent = column_sample_percent
+        self.min_split_gain = min_split_gain
+        
+    # def fit(self, x, y=None, **fit_params):
+    #     self.pipeline = Pipeline(steps=[
+    #         ('preprocessor', self.preprocessor),
+    #         ('regressor', XGBRegressor(
+    #                 device_type="gpu",
+                    
+                    # learning_rate=self.learning_rate,       # Same name
+                    # n_estimators=self.n_estimators,             # max_iter maps to n_estimators
+                    # num_leaves=self.max_leaf_nodes,         # max_leaf_nodes maps to max_leaves
+                    # min_child_samples=self.min_samples_leaf, # min_samples_leaf maps closely to min_child_weight
+                    # reg_lambda=self.l2_regularization,       # l2_regularization maps to reg_lambda
+                    # colsample_bytree=1.0,
+                    # min_split_gain=0.0
+    #             )
+    #         )
+    #     ], memory=memory)
+
+    #     self.pipeline.fit(self.make_features(x), np.log(y), **fit_params)
+    #     return self
+
+    def fit(self, x):
+        self.pipeline = Pipeline(steps=[
+            ('preprocessor', self.preprocessor),
+            ('regressor', LGBMRegressor(
+                    device_type="gpu",
+                    
+                    learning_rate=self.learning_rate,       # Same name
+                    n_estimators=self.n_estimators,             # max_iter maps to n_estimators
+                    num_leaves=self.max_leaf_nodes,         # max_leaf_nodes maps to max_leaves
+                    min_child_samples=self.min_samples_leaf, # min_samples_leaf maps closely to min_child_weight
+                    reg_lambda=self.l2_regularization,       # l2_regularization maps to reg_lambda
+                    colsample_bytree=self.column_sample_percent,
+                    min_split_gain=self.min_split_gain
                 )
             )
         ], memory=memory)
