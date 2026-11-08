@@ -20,6 +20,7 @@ from sklearn.model_selection import KFold, cross_val_predict
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
 
+# import features
 import john.features as features
 
 
@@ -213,7 +214,7 @@ class _CatBoostLearner:
         from catboost import CatBoostRegressor
         p = dict(iterations=1500, learning_rate=0.06, depth=6, l2_leaf_reg=3.0,
                  loss_function=self.LOSSES[self.objective], random_seed=self.seed,
-                 verbose=0, thread_count=-1, allow_writing_files=False)
+                 verbose=0, thread_count=-1, allow_writing_files=False, task_type="GPU")
         p.update(self.params)
         self.model = CatBoostRegressor(**p)
         self.model.fit(self._prep(X, cats), y, sample_weight=w, cat_features=list(cats))
