@@ -235,6 +235,17 @@ def feature_list_mlp(homes):
 
     return X
 
+def feature_list_with_lot(homes):
+    X = feature_list_with_lot_off_market(homes)
+    X['list_price'] = homes['list_price']
+    return X
+
+def feature_list_with_lot_off_market(homes):
+    X = feature_list_mlp_off_market(homes)
+    X["lot_front"] = homes["lot_front"]
+    X["lot_depth"] = homes["lot_depth"]
+    return X
+
 def feature_list_mlp_off_market(homes):
     """"Features to fit MLP"""
     X = pd.DataFrame(index=homes.index)
