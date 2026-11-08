@@ -133,6 +133,7 @@ class GroupedConditionalImputer(BaseEstimator, TransformerMixin):
 
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
+from sklearn.pipeline import Pipeline
 def get_preprocessor_mlp(track):
     """
     Creates a ColumnTransformer that applies StandardScaler to numerical features
@@ -171,10 +172,66 @@ def get_preprocessor_random_forest(track):
     )
     return preprocessor
 
+def get_preprocessor_imputed(track):
+    numeric_features = ['house_area', 'bedrooms', 'washrooms', 'parking_total', 'latitude', 'longitude', 'months']
+    categorical_features = ['house_type_name', 'house_style', 'municipality', 'community']
+    imputed_features = ['parking_total', 'house_type_name', 'lot_front', 'lot_depth']
+
+    if track == 'list_aware':
+        numeric_features.append('list_price')
+
+    preprocessing_pipeline = Pipeline(
+        steps=[
+            ('cond', GroupedConditionalImputer(cond_col="parking_total", category_col="house_type_name", target_cols=['lot_front', 'lot_depth'], strategy='median')),
+            ('col_trans', ColumnTransformer(
+                transformers=[
+                    ('cat', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), categorical_features)
+                ],
+                remainder='passthrough'
+            ))
+        ]
+    )
+    # preprocessing_pipeline.set_output(transform="pandas")
+    return preprocessing_pipeline
+
+import nltk
+nltk.download("stopwords", quiet=True)
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import TfidfVectorizer
+def get_preprocessor_nlp(track):
+    nltk_stop_words = list(stopwords.words("english"))
+
+    numeric_features = ['house_area', 'bedrooms', 'washrooms', 'parking_total', 'latitude', 'longitude', 'months']
+    categorical_features = ['house_type_name', 'house_style', 'municipality', 'community']
+    imputed_features = ['parking_total', 'house_type_name', 'lot_front', 'lot_depth']
+
+    if track == 'list_aware':
+        numeric_features.append('list_price')
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("tfidf", TfidfVectorizer(stop_words=nltk_stop_words, lowercase=True), "remarks"),
+            ('cat', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), categorical_features)
+        ],
+        remainder='passthrough'
+    )
+    # preprocessing_pipeline.set_output(transform="pandas")
+    return preprocessor
+
+def feature_list_mlp_nlp_off_market(homes):
+    X = feature_list_mlp_off_market(homes)
+    X['remarks'] = homes['remarks']
+    return X
+
+def feature_list_mlp_nlp(homes):
+    X = feature_list_mlp(homes)
+    X['remarks'] = homes['remarks']
+    return X
+
 def feature_list_mlp(homes):
     """"Features to fit MLP"""
     X = feature_list_mlp_off_market(homes)
-    X['list_price'] = homes['list_price']    
+    X['list_price'] = homes['list_price']
 
     return X
 

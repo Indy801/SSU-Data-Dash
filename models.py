@@ -27,20 +27,25 @@ def make_model(track):
         # return FeatureModel(features.list_aware_features)   # try this instead
         # return MLPModel(features.feature_list_mlp, features.get_preprocessor_mlp(track))
         # return RandomForestRegressorModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track))
-        # return XGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
-        # return LGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
-        return GBMBlend("list_aware", partial(gbm_features, track="list_aware"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
-            lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
-        )
+        # return XGBModel(features.feature_list_mlp, features.get_preprocessor_imputed(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+        # return LGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
+        # return GBMBlend("list_aware", partial(gbm_features, track="list_aware"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
+        #     lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
+        # )
+        # return LGBModel(features.feature_list_mlp_nlp, features.get_preprocessor_nlp(track), learning_rate=0.1, n_estimators=600, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
+        return XGBModel(features.feature_list_mlp_nlp, features.get_preprocessor_nlp(track), learning_rate=0.2, n_estimators=1000, max_leaf_nodes=31, min_samples_leaf=25, l2_regularization=1.2, column_sample_percent=1)
     # return NearestSalesBaseline(k=10)
     # return FeatureModel(features.off_market_features)       # try this instead
     # return MLPModel(features.feature_list_mlp_off_market, features.get_preprocessor_mlp(track))
     # return RandomForestRegressorModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track))
-    # return XGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
-    # return LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
-    return GBMBlend("off_market", partial(gbm_features, track="off_market"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
-            lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
-        )
+    # return XGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_imputed(track), learning_rate=0.2, n_estimators=800, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
+    # return LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=1000, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=0.5)
+    # return GBMBlend("off_market", partial(gbm_features, track="off_market"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
+    #         lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
+    #     )
+    # return LGBModel(features.feature_list_mlp_nlp_off_market, features.get_preprocessor_nlp(track), learning_rate=0.1, n_estimators=600, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
+    return XGBModel(features.feature_list_mlp_nlp_off_market, features.get_preprocessor_nlp(track), learning_rate=0.1, n_estimators=1000, max_leaf_nodes=31, min_samples_leaf=25, l2_regularization=1.2, column_sample_percent=1)
+
 
 class ListPriceBaseline:
     """List-aware baseline: every home sells for exactly its list price."""
@@ -208,7 +213,7 @@ class XGBModel(BaseEstimator, RegressorMixin):
         self.preprocessor = preprocessor
 
         self.learning_rate = learning_rate
-        self.max_iter = n_estimators
+        self.n_estimators = n_estimators
         self.max_leaf_nodes = max_leaf_nodes
         self.min_samples_leaf = min_samples_leaf
         self.l2_regularization = l2_regularization
@@ -221,12 +226,15 @@ class XGBModel(BaseEstimator, RegressorMixin):
     #         ('regressor', XGBRegressor(
     #                 tree_method="hist",                     # Uses the histogram approach
     #                 device="cuda",                          # Forces GPU execution
+    #                 random_state=self.random_state,
                     
     #                 learning_rate=self.learning_rate,       # Same name
-    #                 n_estimators=self.max_iter,             # max_iter maps to n_estimators
+    #                 n_estimators=self.n_estimators,             # max_iter maps to n_estimators
     #                 max_leaves=self.max_leaf_nodes,         # max_leaf_nodes maps to max_leaves
     #                 min_child_weight=self.min_samples_leaf, # min_samples_leaf maps closely to min_child_weight
-    #                 reg_lambda=self.l2_regularization       # l2_regularization maps to reg_lambda
+    #                 reg_lambda=self.l2_regularization,       # l2_regularization maps to reg_lambda
+    #                 colsample_bytree=self.column_sample_percent,
+    #                 gamma=self.min_split_gain
     #             )
     #         )
     #     ], memory=memory)
@@ -240,6 +248,7 @@ class XGBModel(BaseEstimator, RegressorMixin):
             ('regressor', XGBRegressor(
                     tree_method="hist",                     # Uses the histogram approach
                     device="cuda",                          # Forces GPU execution
+                    random_state=self.random_state,
                     
                     learning_rate=self.learning_rate,       # Same name
                     n_estimators=self.n_estimators,             # max_iter maps to n_estimators
@@ -285,16 +294,17 @@ class LGBModel(BaseEstimator, RegressorMixin):
     # def fit(self, x, y=None, **fit_params):
     #     self.pipeline = Pipeline(steps=[
     #         ('preprocessor', self.preprocessor),
-    #         ('regressor', XGBRegressor(
+    #         ('regressor', LGBMRegressor(
     #                 device_type="gpu",
+    #                 random_state=self.random_state,
                     
-                    # learning_rate=self.learning_rate,       # Same name
-                    # n_estimators=self.n_estimators,             # max_iter maps to n_estimators
-                    # num_leaves=self.max_leaf_nodes,         # max_leaf_nodes maps to max_leaves
-                    # min_child_samples=self.min_samples_leaf, # min_samples_leaf maps closely to min_child_weight
-                    # reg_lambda=self.l2_regularization,       # l2_regularization maps to reg_lambda
-                    # colsample_bytree=1.0,
-                    # min_split_gain=0.0
+    #                 learning_rate=self.learning_rate,       # Same name
+    #                 n_estimators=self.n_estimators,             # max_iter maps to n_estimators
+    #                 num_leaves=self.max_leaf_nodes,         # max_leaf_nodes maps to max_leaves
+    #                 min_child_samples=self.min_samples_leaf, # min_samples_leaf maps closely to min_child_weight
+    #                 reg_lambda=self.l2_regularization,       # l2_regularization maps to reg_lambda
+    #                 colsample_bytree=self.column_sample_percent,
+    #                 min_split_gain=self.min_split_gain
     #             )
     #         )
     #     ], memory=memory)
@@ -307,6 +317,7 @@ class LGBModel(BaseEstimator, RegressorMixin):
             ('preprocessor', self.preprocessor),
             ('regressor', LGBMRegressor(
                     device_type="gpu",
+                    random_state=self.random_state,
                     
                     learning_rate=self.learning_rate,       # Same name
                     n_estimators=self.n_estimators,             # max_iter maps to n_estimators
