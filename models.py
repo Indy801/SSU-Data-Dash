@@ -28,33 +28,33 @@ def make_model(track):
         # return MLPModel(features.feature_list_mlp, features.get_preprocessor_mlp(track))
         # return RandomForestRegressorModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track))
         # return XGBModel(features.feature_list_mlp, features.get_preprocessor_imputed(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
-        return LGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
+        # return LGBModel(features.feature_list_mlp, features.get_preprocessor_random_forest(track), learning_rate=0.1, n_estimators=500, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
         # return GBMBlend("list_aware", partial(gbm_features, track="list_aware"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
             # lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5},
         # )
         # return LGBModel(features.feature_list_mlp_nlp, features.get_preprocessor_nlp(track), learning_rate=0.1, n_estimators=600, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
         # return XGBModel(features.feature_list_mlp_nlp, features.get_preprocessor_nlp(track), learning_rate=0.2, n_estimators=1000, max_leaf_nodes=31, min_samples_leaf=25, l2_regularization=1.2, column_sample_percent=1)
-        # return GBMBlend("list_aware", partial(gbm_features, track="list_aware"), clean=True, half_life=18, learners=("lgbm", "catboost"), objective='huber', text_alpha=3.0, 
-        #     lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5},
-        #     catboost_params={'depth': 8, 'learning_rate': 0.06, 'l2_leaf_reg': 10},
-        #     weights={"lgbm": 0.3, "catboost": 0.7}
-        # )
+        return GBMBlend("list_aware", partial(gbm_features, track="list_aware"), clean=True, half_life=18, learners=("lgbm", "catboost"), objective='huber', text_alpha=3.0, 
+            lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5},
+            catboost_params={'depth': 8, 'learning_rate': 0.06, 'l2_leaf_reg': 10},
+            weights={"lgbm": 0.3, "catboost": 0.7}
+        )
     # return NearestSalesBaseline(k=10)
     # return FeatureModel(features.off_market_features)       # try this instead
     # return MLPModel(features.feature_list_mlp_off_market, features.get_preprocessor_mlp(track))
     # return RandomForestRegressorModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track))
     # return XGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_imputed(track), learning_rate=0.2, n_estimators=800, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0)
-    return LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=1000, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=0.5)
+    # return LGBModel(features.feature_list_mlp_off_market, features.get_preprocessor_random_forest(track), learning_rate=0.2, n_estimators=1000, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=0.5)
     # return GBMBlend("off_market", partial(gbm_features, track="off_market"), learners=("lgbm",), objective='l1', text_alpha=3.0, 
     #         lgbm_params={'num_leaves': 63, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.5}
     #     )
     # return LGBModel(features.feature_list_mlp_nlp_off_market, features.get_preprocessor_nlp(track), learning_rate=0.1, n_estimators=600, max_leaf_nodes=63, min_samples_leaf=50, l2_regularization=1.0, column_sample_percent=1)
     # return XGBModel(features.feature_list_mlp_nlp_off_market, features.get_preprocessor_nlp(track), learning_rate=0.1, n_estimators=1000, max_leaf_nodes=31, min_samples_leaf=25, l2_regularization=1.2, column_sample_percent=1)
-    # return GBMBlend("off_market", partial(gbm_features, track="off_market"), clean=True, half_life=12, learners=("lgbm", "catboost"), objective='l2', text_alpha=1.0, 
-    #     lgbm_params={'num_leaves': 255, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.7},
-    #     catboost_params={'depth': 6, 'learning_rate': 0.1, 'l2_leaf_reg': 3},
-    #     weights={"lgbm": 0.9, "catboost": 0.1}
-    # )
+    return GBMBlend("off_market", partial(gbm_features, track="off_market"), clean=True, half_life=12, learners=("lgbm", "catboost"), objective='l2', text_alpha=1.0, 
+        lgbm_params={'num_leaves': 255, 'min_child_samples': 10, 'learning_rate': 0.05, 'n_estimators': 1500, 'colsample_bytree': 0.7},
+        catboost_params={'depth': 6, 'learning_rate': 0.1, 'l2_leaf_reg': 3},
+        weights={"lgbm": 0.9, "catboost": 0.1}
+    )
 
 
 class ListPriceBaseline:
