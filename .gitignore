@@ -3,7 +3,7 @@ data/
 outputs/
 reports/
 figures/
-submissions/
+# submissions/
 
 # Python and notebook clutter
 __pycache__/
